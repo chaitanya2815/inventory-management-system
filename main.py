@@ -1,18 +1,15 @@
 from fastapi import FastAPI, Depends, HTTPException
-from fastapi.middleware.cors import CORSMiddleware  
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from database import engine, get_db
 import models, schemas
-
-# Kothaga add chesina Email imports
 import os
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import requests
 
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], 
@@ -21,51 +18,33 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ==========================================
-# 0. EMAIL FUNCTION (Kotha Code)
-# ==========================================
 def send_order_confirmation_email(to_email, order_id, quantity):
+    api_key = os.getenv("BREVO_API_KEY")
     sender_email = os.getenv("SENDER_EMAIL")
-    sender_password = os.getenv("SENDER_PASSWORD")
 
-    if not sender_email or not sender_password:
+    if not api_key or not sender_email:
         return
 
-    msg = MIMEMultipart()
-    msg['From'] = f"Inventory System <{sender_email}>"
-    msg['To'] = to_email
-    msg['Cc'] = sender_email  # Sender ki kooda mail vellela CC add chesam
-    msg['Subject'] = f"Order Confirmation - #{order_id}"
+    url = "https://api.brevo.com/v3/smtp/email"
     
-    # Anti-Spam Trick: Reply-To header add chesthunnam
-    msg.add_header('reply-to', sender_email)
-
-    body = f"""Hello,
-
-Your order has been successfully placed in our Inventory System.
-
-Order Details:
-- Order ID: #{order_id}
-- Quantity: {quantity}
-
-Thank you for your business!
-"""
-    msg.attach(MIMEText(body, 'plain'))
-
-    # Ikkada To mariyu Cc iddariki mail vellela list pass chesthunnam
-    recipients = [to_email, sender_email]
+    headers = {
+        "accept": "application/json",
+        "api-key": api_key,
+        "content-type": "application/json"
+    }
+    
+    data = {
+        "sender": {"name": "Inventory System", "email": sender_email},
+        "to": [{"email": to_email}, {"email": sender_email}],
+        "subject": f"Order Confirmation - #{order_id}",
+        "textContent": f"Hello,\n\nYour order has been successfully placed in our Inventory System.\n\nOrder ID: #{order_id}\nQuantity: {quantity}\n\nThank you for your business!"
+    }
 
     try:
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(sender_email, sender_password)
-        server.sendmail(sender_email, recipients, msg.as_string())
-        server.quit()
-        print(f"✅ Email Sent Successfully to: {to_email} & {sender_email}")
-    except Exception as e:
-        print(f"❌ Email Failed: {e}")
-# 1. PRODUCT ENDPOINTS
-# ==========================================
+        requests.post(url, headers=headers, json=data)
+    except Exception:
+        pass
+
 @app.post("/products", response_model=schemas.ProductResponse)
 def create_product(product: schemas.ProductCreate, db: Session = Depends(get_db)):
     db_product = db.query(models.Product).filter(models.Product.sku == product.sku).first()
@@ -82,9 +61,6 @@ def create_product(product: schemas.ProductCreate, db: Session = Depends(get_db)
 def get_products(db: Session = Depends(get_db)):
     return db.query(models.Product).all()
 
-# ==========================================
-# 2. CUSTOMER ENDPOINTS
-# ==========================================
 @app.post("/customers", response_model=schemas.CustomerResponse)
 def create_customer(customer: schemas.CustomerCreate, db: Session = Depends(get_db)):
     db_customer = db.query(models.Customer).filter(models.Customer.email == customer.email).first()
@@ -101,9 +77,6 @@ def create_customer(customer: schemas.CustomerCreate, db: Session = Depends(get_
 def get_customers(db: Session = Depends(get_db)):
     return db.query(models.Customer).all()
 
-# ==========================================
-# 3. ORDER ENDPOINTS (Updated with Email)
-# ==========================================
 @app.post("/orders", response_model=schemas.OrderResponse)
 def create_order(order: schemas.OrderCreate, db: Session = Depends(get_db)):
     product = db.query(models.Product).filter(models.Product.id == order.product_id).first()
@@ -132,7 +105,6 @@ def create_order(order: schemas.OrderCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_order)
 
-    # Email function ni ikkada call chesthunnam
     send_order_confirmation_email(customer.email, new_order.id, new_order.quantity)
 
     return new_order
