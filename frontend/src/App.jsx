@@ -12,10 +12,13 @@ function App() {
   const [cName, setCName] = useState(''); const [cEmail, setCEmail] = useState('')
   const [selectedCustomer, setSelectedCustomer] = useState(''); const [selectedProduct, setSelectedProduct] = useState(''); const [orderQty, setOrderQty] = useState('')
 
+  // LIVE BACKEND URL
+  const API_URL = 'https://inventory-backend-live.onrender.com'
+
   const refreshData = () => {
-    axios.get('http://127.0.0.1:8000/products').then(res => setProducts(res.data)).catch(err => console.log(err))
-    axios.get('http://127.0.0.1:8000/customers').then(res => setCustomers(res.data)).catch(err => console.log(err))
-    axios.get('http://127.0.0.1:8000/orders').then(res => setOrders(res.data)).catch(err => console.log(err))
+    axios.get(`${API_URL}/products`).then(res => setProducts(res.data)).catch(err => console.log(err))
+    axios.get(`${API_URL}/customers`).then(res => setCustomers(res.data)).catch(err => console.log(err))
+    axios.get(`${API_URL}/orders`).then(res => setOrders(res.data)).catch(err => console.log(err))
   }
 
   useEffect(() => { refreshData() }, [])
@@ -23,21 +26,21 @@ function App() {
   // Handlers
   const handleAddProduct = (e) => {
     e.preventDefault()
-    axios.post('http://127.0.0.1:8000/products', { name: pName, sku: pSku, price: parseFloat(pPrice), stock_quantity: parseInt(pStock) })
+    axios.post(`${API_URL}/products`, { name: pName, sku: pSku, price: parseFloat(pPrice), stock_quantity: parseInt(pStock) })
     .then(() => { alert('✅ Product Added!'); refreshData(); setPName(''); setPSku(''); setPPrice(''); setPStock(''); })
     .catch(err => alert('❌ ' + (err.response?.data?.detail || 'Error')))
   }
 
   const handleAddCustomer = (e) => {
     e.preventDefault()
-    axios.post('http://127.0.0.1:8000/customers', { name: cName, email: cEmail })
+    axios.post(`${API_URL}/customers`, { name: cName, email: cEmail })
     .then(() => { alert('✅ Customer Added!'); refreshData(); setCName(''); setCEmail(''); })
     .catch(err => alert('❌ ' + (err.response?.data?.detail || 'Error')))
   }
 
   const handlePlaceOrder = (e) => {
     e.preventDefault()
-    axios.post('http://127.0.0.1:8000/orders', { customer_id: parseInt(selectedCustomer), product_id: parseInt(selectedProduct), quantity: parseInt(orderQty) })
+    axios.post(`${API_URL}/orders`, { customer_id: parseInt(selectedCustomer), product_id: parseInt(selectedProduct), quantity: parseInt(orderQty) })
     .then(() => { alert('✅ Order Placed & Stock Updated!'); refreshData(); setSelectedCustomer(''); setSelectedProduct(''); setOrderQty(''); })
     .catch(err => alert('❌ ' + (err.response?.data?.detail || 'Error')))
   }
