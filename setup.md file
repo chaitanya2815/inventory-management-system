@@ -1,0 +1,195 @@
+# 🛠️ Setup Guide — Inventory Management System
+
+---
+
+## ✅ Prerequisites
+
+Make sure you have the following installed:
+
+| Tool | Version | Download |
+|---|---|---|
+| Python | 3.10+ | https://python.org |
+| Node.js | 18+ | https://nodejs.org |
+| Docker | Latest | https://docker.com |
+| Docker Compose | Latest | Included with Docker Desktop |
+| Git | Latest | https://git-scm.com |
+
+---
+
+## 📥 1. Clone the Repository
+
+```bash
+git clone https://github.com/your-username/inventory-project.git
+cd inventory-project
+```
+
+---
+
+## 🔐 2. Configure Environment Variables
+
+Create a `.env` file in the **root** of the project:
+
+```bash
+# On Linux/Mac
+touch .env
+
+# On Windows
+type nul > .env
+```
+
+Add the following to `.env`:
+
+```env
+DATABASE_URL=postgresql://<user>:<password>@<host>/<dbname>?sslmode=require
+BREVO_API_KEY=your_brevo_api_key_here
+SENDER_EMAIL=your_sender@example.com
+```
+
+> ⚠️ **Important:** Never commit `.env` to GitHub. It is already listed in `.gitignore`.
+
+---
+
+## 🐳 Option A — Run with Docker (Recommended)
+
+### Step 1: Build and start all services
+
+```bash
+docker-compose up --build
+```
+
+### Step 2: Access the app
+
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:5173 |
+| Backend API | http://localhost:8000 |
+| Swagger Docs | http://localhost:8000/docs |
+
+### Step 3: Stop the services
+
+```bash
+docker-compose down
+```
+
+---
+
+## 💻 Option B — Run Locally (Without Docker)
+
+### Backend Setup
+
+```bash
+# Create and activate virtual environment
+python -m venv venv
+
+# On Linux/Mac
+source venv/bin/activate
+
+# On Windows
+venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Start the backend server
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Backend will be live at: **http://localhost:8000**
+
+---
+
+### Frontend Setup
+
+Open a **new terminal** window:
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Start the dev server
+npm run dev
+```
+
+Frontend will be live at: **http://localhost:5173**
+
+---
+
+## 🗄️ 3. Database Setup
+
+This project uses **PostgreSQL via Neon** (serverless cloud DB). The tables are auto-created on first run using SQLAlchemy:
+
+```python
+models.Base.metadata.create_all(bind=engine)
+```
+
+No manual migration needed — just ensure your `DATABASE_URL` in `.env` is correct and the DB is accessible.
+
+---
+
+## 🧪 4. Test the API
+
+Once the backend is running, open Swagger UI:
+
+```
+http://localhost:8000/docs
+```
+
+You can test all endpoints directly from the browser.
+
+Or use `curl`:
+
+```bash
+# Create a product
+curl -X POST http://localhost:8000/products \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Laptop", "sku": "LAP-001", "price": 999.99, "stock_quantity": 50}'
+
+# List all products
+curl http://localhost:8000/products
+
+# Create a customer
+curl -X POST http://localhost:8000/customers \
+  -H "Content-Type: application/json" \
+  -d '{"name": "John Doe", "email": "john@example.com"}'
+
+# Place an order
+curl -X POST http://localhost:8000/orders \
+  -H "Content-Type: application/json" \
+  -d '{"customer_id": 1, "product_id": 1, "quantity": 2}'
+```
+
+---
+
+## 📧 5. Email Setup (Brevo)
+
+1. Sign up at [https://www.brevo.com](https://www.brevo.com)
+2. Go to **Settings → API Keys** and generate a key
+3. Add it to `.env` as `BREVO_API_KEY`
+4. Set `SENDER_EMAIL` to a verified sender address in your Brevo account
+
+> Email sending is optional — if the keys are missing, orders still work and the email step is silently skipped.
+
+---
+
+## 🐛 Common Issues
+
+| Problem | Fix |
+|---|---|
+| `port 8000 already in use` | Run `lsof -i :8000` and kill the process, or change the port in `docker-compose.yml` |
+| `port 5173 already in use` | Change the port in `docker-compose.yml` and `vite.config.js` |
+| DB connection error | Double-check `DATABASE_URL` in `.env`. Ensure Neon DB is active. |
+| CORS error in browser | Backend allows all origins by default (`*`). Check the frontend API base URL. |
+| `Module not found` (frontend) | Run `npm install` inside the `frontend/` folder |
+| Docker build fails | Make sure Docker Desktop is running and try `docker-compose down --rmi all` then rebuild |
+
+---
+
+## 📁 Environment Variables Reference
+
+| Variable | Required | Description |
+|---|---|---|
+| `DATABASE_URL` | ✅ Yes | PostgreSQL connection string |
+| `BREVO_API_KEY` | ⚠️ Optional | Brevo API key for email notifications |
+| `SENDER_EMAIL` | ⚠️ Optional | Verified sender email address |
